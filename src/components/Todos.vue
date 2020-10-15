@@ -2,9 +2,6 @@
   <section class="todoapp">
     <header class="header">
       <h1>todos</h1>
-      <div>
-        Todo <span>{{ newTodo }}</span>
-      </div>
       <input
         autofocus="autofocus"
         autocomplete="off"
@@ -15,7 +12,7 @@
       />
     </header>
 
-    <section class="main" style="">
+    <section class="main" v-show="todos.length">
       <input
         id="toggle-all"
         type="checkbox"
@@ -27,7 +24,7 @@
         <li
           class="todo"
           :class="{ completed: todo.completed }"
-          v-for="todo in todos"
+          v-for="todo in filterTodos"
           v-bind:key="todo.id"
         >
           <div class="view">
@@ -39,14 +36,20 @@
         </li>
       </ul>
     </section>
-    <footer class="footer" style="">
+    <footer class="footer" v-show="todos.length">
       <span class="todo-count"
         ><strong>{{ selectedCount }}</strong> item left
       </span>
       <ul class="filters">
-        <li><a href="#/all" class="selected">All</a></li>
-        <li><a href="#/active" class="">Active</a></li>
-        <li><a href="#/completed" class="">Completed</a></li>
+        <li><a href="#/all" :class="{ selected: hash === 'all' }">All</a></li>
+        <li>
+          <a href="#/active" :class="{ selected: hash === 'active' }">Active</a>
+        </li>
+        <li>
+          <a href="#/completed" :class="{ selected: hash === 'completed' }"
+            >Completed</a
+          >
+        </li>
       </ul>
       <button class="clear-completed" style="" @click="clearCompleted">
         Clear completed
@@ -56,22 +59,59 @@
 </template>
 
 <script>
+const STORAGE_KEY = "todos-vuejs";
+
+const todoStorage = {
+  fetch: function() {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  },
+  save: function(todos) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+  }
+};
+const filters = {
+  all: todos => {
+    return todos;
+  },
+  active: todos => {
+    return todos.filter(todo => !todo.completed);
+  },
+  completed: todos => {
+    return todos.filter(todo => todo.completed);
+  }
+};
 export default {
   name: "Todos",
   data() {
     return {
+      hash: "all",
       newTodo: "",
-      todos: []
+      todos: todoStorage.fetch()
     };
   },
-
+  watch: {
+    todos: {
+      deep: true,
+      handler: todoStorage.save
+    }
+  },
+  created() {
+    const vm = this;
+    vm.hash = location.hash.replace("#/", "");
+    window.addEventListener("hashchange", () => {
+      vm.hash = location.hash.replace("#/", "");
+    });
+  },
   computed: {
     selectedCount: function() {
-      return this.todos.filter(todo => todo.completed).length;
+      return filters.active(this.todos).length;
+    },
+    filterTodos: function() {
+      return filters[this.hash](this.todos);
     },
     allDone: {
       get: function() {
-        return "";
+        return this.selectedCount === 0;
       },
       set: function(value) {
         this.todos.forEach(function(todo) {
